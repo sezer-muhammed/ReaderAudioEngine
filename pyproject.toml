@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/sezer-muhammed/ebook-reader-supertonic"
-"Bug Tracker" = "https://github.com/sezer-muhammed/ebook-reader-supertonic/issues"
+"Homepage" = "https://github.com/sezer-muhammed/ReaderAudioEngine"
+"Bug Tracker" = "https://github.com/sezer-muhammed/ReaderAudioEngine/issues"
 
 [tool.setuptools.packages.find]
 include = ["ebook_reader_supertonic*"]

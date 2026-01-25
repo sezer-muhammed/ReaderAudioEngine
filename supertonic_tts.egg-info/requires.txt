@@ -1,6 +1,0 @@
-numpy
-onnxruntime
-scipy
-huggingface-hub
-pydantic
-langid

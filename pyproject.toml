@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "supertonic-tts"
-version = "0.1.0"
+name = "ebook-reader-supertonic"
+version = "1.1.0"
 authors = [
   { name="Izzet Sezer", email="sezer@imsezer.com" },
 ]
@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/imsezer/supertonic-tts"
-"Bug Tracker" = "https://github.com/imsezer/supertonic-tts/issues"
+"Homepage" = "https://github.com/sezer-muhammed/ebook-reader-supertonic"
+"Bug Tracker" = "https://github.com/sezer-muhammed/ebook-reader-supertonic/issues"
 
 [tool.setuptools.packages.find]
-include = ["supertonic_tts*"]
+include = ["ebook_reader_supertonic*"]

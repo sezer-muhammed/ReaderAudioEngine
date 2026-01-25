@@ -1,12 +1,12 @@
-from supertonic_tts import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED, MIN_STEPS, MAX_STEPS
+from ebook_reader_supertonic import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED, MIN_STEPS, MAX_STEPS
 import numpy as np
 
 def main():
     """
-    This example demonstrates how to use the SupertonicTTS package with various settings.
+    This example demonstrates how to use the ebook_reader_supertonic package with various settings.
     """
     # 1. Initialize the engine
-    # This will automatically download models to ~/.cache/supertonic_tts if not present.
+    # This will automatically download models to ~/.cache/ebook_reader_supertonic if not present.
     engine = SupertonicTTS()
 
     # 2. Basic Synthesis parameters

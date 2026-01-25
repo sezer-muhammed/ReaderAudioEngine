@@ -14,7 +14,7 @@ class SupertonicTTS:
         """
         # Set up global user cache directory
         user_home = os.path.expanduser("~")
-        self.global_cache_dir = os.path.join(user_home, '.cache', 'supertonic_tts')
+        self.global_cache_dir = os.path.join(user_home, '.cache', 'ebook_reader_supertonic')
         self.assets_dir = os.path.join(self.global_cache_dir, 'assets', 'onnx')
         self.voices_dir = os.path.join(self.global_cache_dir, 'assets', 'voice_styles')
 

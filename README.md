@@ -1,10 +1,10 @@
-# Supertonic TTS
+# ebook-reader-supertonic
 
 A high-quality Flow-Matching based Text-to-Speech library using ONNX. This is a Python port of the Supertonic-2 web implementation.
 
 ## Features
 - **10 Unique Voice Styles**: Professional male and female voices.
-- **Auto-Downloader**: Automatically fetches models from HuggingFace to a global cache (`~/.cache/supertonic_tts`).
+- **Auto-Downloader**: Automatically fetches models from HuggingFace to a global cache (`~/.cache/ebook_reader_supertonic`).
 - **Word Timestamps**: Precise estimation of word-level timing.
 - **Adjustable Parameters**: Control speed (0.9 - 1.4) and diffusion steps (3 - 14).
 - **Lightweight Inference**: Runs on CPU/GPU via ONNX Runtime.
@@ -12,16 +12,16 @@ A high-quality Flow-Matching based Text-to-Speech library using ONNX. This is a 
 ## Installation
 
 ```bash
-pip install .
+pip install ebook-reader-supertonic
 ```
 
 ## Quick Start
 
 ```python
-from supertonic_tts import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED
+from ebook_reader_supertonic import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED
 
 # 1. Initialize engine
-# Models are automatically cached in ~/.cache/supertonic_tts
+# Models are automatically cached in ~/.cache/ebook_reader_supertonic
 engine = SupertonicTTS()
 
 # 2. Synthesize
@@ -30,11 +30,12 @@ engine = SupertonicTTS()
 # - sample_rate: int (44100)
 # - word_timestamps: List[Dict] -> [{'word': str, 'start': float, 'end': float}]
 audio, sr, word_timestamps = engine.synthesize(
-    text="Hello! Welcome to Supertonic TTS.", 
+    text="Hello! Welcome to ebook-reader-supertonic.", 
     voice='F5', 
     speed=1.0, 
     steps=10
 )
+```
 
 # 3. Calculate Total Duration
 duration = len(audio) / sr

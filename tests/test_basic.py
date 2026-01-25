@@ -6,7 +6,7 @@ import numpy as np
 # Add parent directory to path to import the package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from supertonic_tts import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED, MIN_STEPS, MAX_STEPS
+from ebook_reader_supertonic import SupertonicTTS, VOICE_STYLES, MIN_SPEED, MAX_SPEED, MIN_STEPS, MAX_STEPS
 
 class TestSupertonicTTS(unittest.TestCase):
     @classmethod

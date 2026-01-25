@@ -240,34 +240,40 @@ class SupertonicTTS:
 
     def _estimate_word_timestamps(self, text, total_duration):
         """
-        Roughly estimate word timestamps based on character counts.
+        Estimate word timestamps with punctuation-aware weighting.
         """
         words = text.split()
         if not words:
             return []
             
-        # Filter out empty strings if any
         words = [w for w in words if w.strip()]
         
-        total_chars = sum(len(w) for w in words)
-        if total_chars == 0:
-            return []
-            
+        # Calculate weights based on characters + punctuation bonus
+        # Punctuation at the end of a word increases the pause after it
+        weights = []
+        for w in words:
+            weight = len(w)
+            if w.endswith(('.', '!', '?')): weight += 4
+            elif w.endswith((',', ';', ':')): weight += 2
+            weights.append(weight)
+        
+        total_weight = sum(weights)
+        if total_weight == 0: return []
+        
+        # We'll use 80% of time for actual speaking, 20% for gaps
+        gap_total = total_duration * 0.20
+        speak_total = total_duration * 0.80
+        
+        time_per_weight = speak_total / total_weight
+        gap_per_word = gap_total / len(words)
+        
         timestamps = []
-        current_time = 0.0
+        current_time = 0.05 # Tiny initial buffer
         
-        # Add a small buffer for spaces/pauses
-        space_ratio = 0.1 # 10% of time for spacing
-        char_time_total = total_duration * (1 - space_ratio)
-        space_time_total = total_duration * space_ratio
-        
-        avg_char_time = char_time_total / total_chars
-        avg_space_time = space_time_total / max(1, len(words))
-        
-        for word in words:
-            word_duration = len(word) * avg_char_time
+        for i, word in enumerate(words):
+            duration = weights[i] * time_per_weight
             start_time = current_time
-            end_time = start_time + word_duration
+            end_time = start_time + duration
             
             timestamps.append({
                 "word": word,
@@ -275,7 +281,12 @@ class SupertonicTTS:
                 "end": round(end_time, 3)
             })
             
-            current_time = end_time + avg_space_time
+            # Gap after word is proportional to punctuation
+            gap = gap_per_word
+            if word.endswith(('.', '!', '?')): gap *= 3.0
+            elif word.endswith((',', ';')): gap *= 2.0
+            
+            current_time = end_time + gap
             
         return timestamps
 

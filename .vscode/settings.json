@@ -1,0 +1,10 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": [],
+    "chat.tools.terminal.autoApprove": {
+        "/^python -c \"import onnxruntime as ort; s = ort\\.InferenceSession\\(r'c:\\\\Users\\\\muham\\\\Desktop\\\\cmu_sezer\\\\readdddtest\\\\supertonic_tts\\\\assets\\\\onnx\\\\text_encoder\\.onnx'\\); print\\('Inputs:', \\[i\\.name for i in s\\.get_inputs\\(\\)\\]\\); print\\('Input Shapes:', \\[i\\.shape for i in s\\.get_inputs\\(\\)\\]\\); print\\('Outputs:', \\[o\\.name for o in s\\.get_outputs\\(\\)\\]\\); print\\('Output Shapes:', \\[o\\.shape for o in s\\.get_outputs\\(\\)\\]\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

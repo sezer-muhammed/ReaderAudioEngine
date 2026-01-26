@@ -1,17 +1,73 @@
 import os
+import sys
 import subprocess
 import json
+import site
+import ctypes
 import numpy as np
+
+def patch_nvidia_paths():
+    """
+    On Windows, ensures that NVIDIA libraries (CUDA, cuDNN) installed via pip 
+    are properly found by ONNX Runtime.
+    """
+    if sys.platform != "win32":
+        return
+    
+    # Get all potential site-packages directories
+    packages_dirs = site.getsitepackages()
+    if hasattr(site, 'getusersitepackages'):
+        user_site = site.getusersitepackages()
+        if user_site not in packages_dirs:
+            packages_dirs.append(user_site)
+        
+    # We want to add ALL nvidia subfolders' bin directories to the path
+    # and to the DLL directory search list.
+    for base_path in packages_dirs:
+        nvidia_path = os.path.join(base_path, "nvidia")
+        if not os.path.exists(nvidia_path):
+            continue
+            
+        for sub in os.listdir(nvidia_path):
+            bin_path = os.path.join(nvidia_path, sub, "bin")
+            if os.path.exists(bin_path):
+                try:
+                    os.add_dll_directory(bin_path)
+                except (OSError, AttributeError):
+                    pass
+                
+                if bin_path not in os.environ["PATH"]:
+                    os.environ["PATH"] = bin_path + os.pathsep + os.environ["PATH"]
+
+    # Pre-loading critical DLLs can help ORT find them
+    # Order: CUDA runtime -> cuBLas -> cuDNN
+    critical_dlls = [
+        "cudart64_12.dll", 
+        "cublas64_12.dll", 
+        "cublasLt64_12.dll", 
+        "cudnn64_9.dll"
+    ]
+    
+    for dll in critical_dlls:
+        try:
+            ctypes.WinDLL(dll)
+        except Exception:
+            pass
+
+# Run patch BEFORE importing onnxruntime
+patch_nvidia_paths()
+
 import onnxruntime as ort
 from huggingface_hub import hf_hub_download
 from .utils import UnicodeProcessor, preprocess_text, detect_language
 
 class SupertonicTTS:
-    def __init__(self, device='cpu'):
+    def __init__(self, device=None):
         """
-        Initialize SupertonicTTS with the directory containing ONNX models and config.
+        Initialize SupertonicTTS.
         
-        :param device: 'cpu' or 'cuda' (for GPU support)
+        :param device: Best available will be chosen if None. 
+                      Options: 'cuda', 'cpu', 'DirectMLExecutionProvider', etc.
         """
         # Set up global user cache directory
         user_home = os.path.expanduser("~")
@@ -40,18 +96,50 @@ class SupertonicTTS:
         
         # ONNX Runtime session options
         self.opts = ort.SessionOptions()
-        # self.opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL # Default is usually good
         
-        providers = ['CPUExecutionProvider']
-        if device == 'cuda':
-            providers = ['CUDAExecutionProvider'] + providers
+        # Automatically determine best providers
+        available = ort.get_available_providers()
+        print(f"Detected ONNX providers: {available}")
+        
+        providers = []
+        if device is None:
+            # Auto-selection priority
+            if 'CUDAExecutionProvider' in available:
+                providers.append('CUDAExecutionProvider')
+            if 'DirectMLExecutionProvider' in available:
+                providers.append('DirectMLExecutionProvider')
+            if 'ROCMExecutionProvider' in available:
+                providers.append('ROCMExecutionProvider')
+        elif device == 'cuda':
+            if 'CUDAExecutionProvider' in available:
+                providers.append('CUDAExecutionProvider')
+            if 'TensorrtExecutionProvider' in available:
+                providers.append('TensorrtExecutionProvider')
+        elif device in available:
+            providers.append(device)
+            
+        if 'CPUExecutionProvider' not in providers:
+            providers.append('CPUExecutionProvider')
         
         # Load models
-        print(f"Loading models from {self.assets_dir}...")
-        self.dp_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'duration_predictor.onnx'), self.opts, providers=providers)
-        self.text_enc_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'text_encoder.onnx'), self.opts, providers=providers)
-        self.vector_est_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vector_estimator.onnx'), self.opts, providers=providers)
-        self.vocoder_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vocoder.onnx'), self.opts, providers=providers)
+        print(f"Initializing models with providers: {providers}")
+        try:
+            self.dp_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'duration_predictor.onnx'), self.opts, providers=providers)
+            self.text_enc_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'text_encoder.onnx'), self.opts, providers=providers)
+            self.vector_est_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vector_estimator.onnx'), self.opts, providers=providers)
+            self.vocoder_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vocoder.onnx'), self.opts, providers=providers)
+            
+            # Print which provider is actually being used
+            actual_providers = self.dp_sess.get_providers()
+            print(f"Active session providers: {actual_providers}")
+        except Exception as e:
+            print(f"Warning: Failed to initialize with preferred providers {providers}. Error: {e}")
+            print("Falling back to CPU...")
+            fallback_providers = ['CPUExecutionProvider']
+            self.dp_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'duration_predictor.onnx'), self.opts, providers=fallback_providers)
+            self.text_enc_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'text_encoder.onnx'), self.opts, providers=fallback_providers)
+            self.vector_est_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vector_estimator.onnx'), self.opts, providers=fallback_providers)
+            self.vocoder_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'vocoder.onnx'), self.opts, providers=fallback_providers)
         
         self.sample_rate = self.cfgs['ae']['sample_rate']
         self.voice_cache = {}

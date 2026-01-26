@@ -1,4 +1,5 @@
 import os
+import subprocess
 import json
 import numpy as np
 import onnxruntime as ort
@@ -296,3 +297,54 @@ class SupertonicTTS:
         audio_norm = np.clip(audio_data, -1, 1)
         audio_int = (audio_norm * 32767).astype(np.int16)
         wavfile.write(path, self.sample_rate, audio_int)
+
+    def save_ogg_optimised(self, audio_data, path, bitrate='32k'):
+        """
+        Save audio as OGG Opus with optimized settings for speech using ffmpeg.
+        """
+        # Normalize to 16-bit PCM for input to ffmpeg pipe
+        audio_norm = np.clip(audio_data, -1, 1)
+        audio_int = (audio_norm * 32767).astype(np.int16)
+        
+        try:
+            # Construct ffmpeg command
+            # Input: s16le, 1 channel (mono), sample rate self.sample_rate
+            # Output: libopus, 24000Hz sample rate, bitrate 32k
+            
+            cmd = [
+                'ffmpeg',
+                '-y', # Overwrite output
+                '-f', 's16le', # Input format: signed 16-bit little endian
+                '-ar', str(self.sample_rate), # Input sample rate
+                '-ac', '1', # Input channels (assuming mono for TTS)
+                '-i', 'pipe:0', # Input from stdin
+                '-c:a', 'libopus', # Codec
+                '-b:a', bitrate, # Bitrate
+                '-ar', '24000', # Output sample rate (resample to 24k as requested)
+                '-ac', '1', # Output channels
+                path
+            ]
+            
+            # Execute with pipe
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            out, err = process.communicate(input=audio_int.tobytes())
+            
+            if process.returncode != 0:
+                print(f"FFmpeg error: {err.decode()}")
+                # Fallback to WAV if ffmpeg fails
+                wav_path = path.replace('.ogg', '.wav')
+                print(f"Falling back to WAV: {wav_path}")
+                self.save_wav(audio_data, wav_path)
+                
+        except Exception as e:
+            print(f"Error saving optimized OGG: {e}")
+            # Fallback
+            wav_path = path.replace('.ogg', '.wav')
+            print(f"Falling back to WAV: {wav_path}")
+            self.save_wav(audio_data, wav_path)

@@ -96,29 +96,45 @@ class SupertonicTTS:
         
         # ONNX Runtime session options
         self.opts = ort.SessionOptions()
+        self.opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         
         # Automatically determine best providers
         available = ort.get_available_providers()
         print(f"Detected ONNX providers: {available}")
         
         providers = []
-        if device is None:
-            # Auto-selection priority
+        # Only add TensorRT if it is available and nvinfer DLLs are present
+        def trt_usable():
+            if 'TensorrtExecutionProvider' not in available:
+                return False
+            # Check for nvinfer DLL (Windows) or libnvinfer.so (Linux)
+            if sys.platform == 'win32':
+                for p in os.environ['PATH'].split(os.pathsep):
+                    if os.path.exists(os.path.join(p, 'nvinfer.dll')) or os.path.exists(os.path.join(p, 'nvinfer_10.dll')):
+                        return True
+                return False
+            else:
+                for p in os.environ['PATH'].split(os.pathsep):
+                    if os.path.exists(os.path.join(p, 'libnvinfer.so')):
+                        return True
+                return False
+
+        if device is None or device == 'cuda':
+            if trt_usable():
+                providers.append(('TensorrtExecutionProvider', {
+                    'device_id': 0,
+                    'trt_max_workspace_size': 2147483648,
+                    'trt_fp16_enable': True,
+                    'trt_engine_cache_enable': True,
+                    'trt_engine_cache_path': os.path.join(self.global_cache_dir, 'trt_cache')
+                }))
             if 'CUDAExecutionProvider' in available:
                 providers.append('CUDAExecutionProvider')
-            if 'DirectMLExecutionProvider' in available:
-                providers.append('DirectMLExecutionProvider')
-            if 'ROCMExecutionProvider' in available:
-                providers.append('ROCMExecutionProvider')
-        elif device == 'cuda':
-            if 'CUDAExecutionProvider' in available:
-                providers.append('CUDAExecutionProvider')
-            if 'TensorrtExecutionProvider' in available:
-                providers.append('TensorrtExecutionProvider')
         elif device in available:
             providers.append(device)
-            
-        if 'CPUExecutionProvider' not in providers:
+
+        # Always add CPU as fallback
+        if 'CPUExecutionProvider' not in [p[0] if isinstance(p, tuple) else p for p in providers]:
             providers.append('CPUExecutionProvider')
         
         # Load models
@@ -133,7 +149,7 @@ class SupertonicTTS:
             actual_providers = self.dp_sess.get_providers()
             print(f"Active session providers: {actual_providers}")
         except Exception as e:
-            print(f"Warning: Failed to initialize with preferred providers {providers}. Error: {e}")
+            print(f"Warning: Failed to initialize with preferred providers. Error: {e}")
             print("Falling back to CPU...")
             fallback_providers = ['CPUExecutionProvider']
             self.dp_sess = ort.InferenceSession(os.path.join(self.assets_dir, 'duration_predictor.onnx'), self.opts, providers=fallback_providers)

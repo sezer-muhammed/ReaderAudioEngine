@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ebook-reader-supertonic"
-version = "1.2.2"
+version = "1.2.3"
 authors = [
   { name="Izzet Sezer", email="sezer@imsezer.com" },
 ]
@@ -19,7 +19,8 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
-    "onnxruntime",
+    "onnxruntime; sys_platform != 'win32' or platform_machine != 'AMD64'",
+    "onnxruntime-gpu; sys_platform == 'win32' and platform_machine == 'AMD64'",
     "scipy",
     "huggingface-hub",
     "pydantic",

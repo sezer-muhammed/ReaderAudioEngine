@@ -5,9 +5,10 @@ import os
 import tarfile
 import tempfile
 import time
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional
 
 
 MODEL_NAME_EN_US_LGRAPH_0_22 = "vosk-model-en-us-0.22-lgraph"
@@ -15,7 +16,7 @@ MODEL_LANG_EN_US = "en-us"
 
 
 HF_REPO_ID = "alphacep/vosk-models"
-HF_FILENAME_EN_US_LGRAPH_0_22 = f"{MODEL_NAME_EN_US_LGRAPH_0_22}.tar.gz"
+ARCHIVE_FILENAME_EN_US_LGRAPH_0_22 = f"{MODEL_NAME_EN_US_LGRAPH_0_22}.zip"
 
 OFFICIAL_BASE_URL = "https://alphacephei.com/vosk/models/"
 
@@ -41,8 +42,8 @@ EN_US_LGRAPH_0_22 = VoskModelSpec(
     name=MODEL_NAME_EN_US_LGRAPH_0_22,
     lang_dir=MODEL_LANG_EN_US,
     hf_repo_id=HF_REPO_ID,
-    hf_filename=HF_FILENAME_EN_US_LGRAPH_0_22,
-    official_url=f"{OFFICIAL_BASE_URL}{MODEL_NAME_EN_US_LGRAPH_0_22}.tar.gz",
+    hf_filename=ARCHIVE_FILENAME_EN_US_LGRAPH_0_22,
+    official_url=f"{OFFICIAL_BASE_URL}{MODEL_NAME_EN_US_LGRAPH_0_22}.zip",
     sha256=None,
 )
 
@@ -141,6 +142,32 @@ def _extract_tar_gz(archive_path: Path, extract_parent: Path) -> None:
         tar.extractall(path=extract_parent, members=_safe_tar_members(tar, extract_parent))
 
 
+def _safe_zip_members(zf: zipfile.ZipFile, extract_to: Path) -> Iterable[zipfile.ZipInfo]:
+    base = extract_to.resolve()
+    for member in zf.infolist():
+        member_path = (extract_to / member.filename).resolve()
+        if base not in member_path.parents and member_path != base:
+            raise VoskModelError(f"Unsafe path in zip archive: {member.filename}")
+        yield member
+
+
+def _extract_zip(archive_path: Path, extract_parent: Path) -> None:
+    with zipfile.ZipFile(archive_path) as zf:
+        for member in _safe_zip_members(zf, extract_parent):
+            zf.extract(member, path=extract_parent)
+
+
+def _extract_archive(archive_path: Path, extract_parent: Path) -> None:
+    name = archive_path.name.lower()
+    if name.endswith(".zip"):
+        _extract_zip(archive_path, extract_parent)
+        return
+    if name.endswith(".tar.gz") or name.endswith(".tgz"):
+        _extract_tar_gz(archive_path, extract_parent)
+        return
+    raise VoskModelError(f"Unsupported archive format: {archive_path}")
+
+
 def ensure_vosk_model(spec: VoskModelSpec) -> Path:
     """
     Ensure the given Vosk model exists on disk (download + extract once).
@@ -175,17 +202,17 @@ def ensure_vosk_model(spec: VoskModelSpec) -> Path:
             official_err: Optional[BaseException] = None
 
             try:
-                _download_from_hf(spec, archive_path)
+                _download_from_official(spec.official_url, archive_path)
             except BaseException as e:
-                hf_err = e
+                official_err = e
                 try:
-                    _download_from_official(spec.official_url, archive_path)
+                    _download_from_hf(spec, archive_path)
                 except BaseException as e2:
-                    official_err = e2
+                    hf_err = e2
 
             if not archive_path.exists():
                 raise VoskModelError(
-                    f"Failed to download {spec.name} (HF={hf_err!r}, official={official_err!r})"
+                    f"Failed to download {spec.name} (official={official_err!r}, HF={hf_err!r})"
                 )
 
             if spec.sha256:
@@ -197,7 +224,7 @@ def ensure_vosk_model(spec: VoskModelSpec) -> Path:
 
             extract_parent = tmp_dir_path / "extract"
             extract_parent.mkdir(parents=True, exist_ok=True)
-            _extract_tar_gz(archive_path, extract_parent)
+            _extract_archive(archive_path, extract_parent)
 
             extracted = extract_parent / spec.name
             if not extracted.exists():

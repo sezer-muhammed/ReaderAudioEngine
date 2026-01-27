@@ -5,7 +5,7 @@ A high-quality Flow-Matching based Text-to-Speech library using ONNX. This is a 
 ## Features
 - **10 Unique Voice Styles**: Professional male and female voices.
 - **Auto-Downloader**: Automatically fetches models from HuggingFace to a global cache (`~/.cache/ebook_reader_supertonic`).
-- **Word Timestamps**: Precise estimation of word-level timing.
+- **Word Timestamps**: Heuristic estimation by default, with optional Vosk-based extraction (offline ASR) for better word timing.
 - **Adjustable Parameters**: Control speed (0.9 - 1.4) and diffusion steps (3 - 14).
 - **Lightweight Inference**: Runs on CPU/GPU via ONNX Runtime.
 
@@ -33,9 +33,20 @@ audio, sr, word_timestamps = engine.synthesize(
     text="Hello! Welcome to ebook-reader-supertonic.", 
     voice='F5', 
     speed=1.0, 
-    steps=10
+    steps=10,
+    # timestamps_backend="auto",  # 'estimate' (default), 'vosk', or 'auto'
+    # vosk_model_path="path/to/vosk/model",  # or set env VOSK_MODEL_PATH
 )
 ```
+
+### Vosk auto-download (optional)
+If you use `timestamps_backend="auto"` or `"vosk"` and no model path is configured, the package can auto-download the pinned model `vosk-model-en-us-0.22-lgraph` into `~/.cache/vosk`.
+
+Environment variables:
+- `VOSK_MODEL_PATH`: use an existing local model directory (disables download).
+- `VOSK_CACHE_DIR`: override cache base (default `~/.cache/vosk`).
+- `VOSK_OFFLINE=1`: forbid downloads (error for `"vosk"`, fallback to estimate for `"auto"`).
+- `EBOOK_READER_VOSK_AUTO_DOWNLOAD=0`: disable auto-download behavior.
 
 # 3. Calculate Total Duration
 duration = len(audio) / sr

@@ -59,7 +59,8 @@ patch_nvidia_paths()
 
 import onnxruntime as ort
 from huggingface_hub import hf_hub_download
-from .utils import UnicodeProcessor, preprocess_text, detect_language
+from .text_preprocess import UnicodeProcessor, detect_language
+from .word_timestamps import extract_word_timestamps
 
 class SupertonicTTS:
     def __init__(self, device=None):
@@ -256,7 +257,16 @@ class SupertonicTTS:
         noisy_latent *= latent_mask
         return noisy_latent, latent_mask
 
-    def synthesize(self, text, voice='M3', lang=None, steps=10, speed=1.0):
+    def synthesize(
+        self,
+        text,
+        voice="M3",
+        lang=None,
+        steps=10,
+        speed=1.0,
+        timestamps_backend: str = "estimate",
+        vosk_model_path=None,
+    ):
         """
         Synthesize speech from text.
         
@@ -265,6 +275,8 @@ class SupertonicTTS:
         :param lang: Language code ('en', 'ko', etc.) or None for auto-detect
         :param steps: Denoising steps (default 10)
         :param speed: Speech speed (default 1.0)
+        :param timestamps_backend: 'estimate' (default), 'vosk', or 'auto'
+        :param vosk_model_path: optional model directory for Vosk (or set env VOSK_MODEL_PATH)
         :return: (audio_data, sample_rate, word_timestamps)
         """
         if lang is None:
@@ -297,11 +309,6 @@ class SupertonicTTS:
         duration_factor = 1.0 / (speed + 0.05)
         duration_val = float(duration[0]) * duration_factor
         
-        # Estimate word timestamps (rough estimation)
-        # We know the total duration and the input text.
-        # We can estimate word boundaries based on character lengths.
-        word_timestamps = self._estimate_word_timestamps(original_text, duration_val)
-
         # 2. Encode text
         enc_inputs = {
             'text_ids': text_ids,
@@ -340,60 +347,17 @@ class SupertonicTTS:
         # Trim wav to predicted duration
         wav_len = int(duration_val * self.sample_rate)
         wav = wav.flatten()[:wav_len]
+
+        word_timestamps = extract_word_timestamps(
+            audio=wav,
+            sample_rate=self.sample_rate,
+            text=original_text,
+            backend=timestamps_backend,
+            lang=lang,
+            vosk_model_path=vosk_model_path,
+        )
         
         return wav, self.sample_rate, word_timestamps
-
-    def _estimate_word_timestamps(self, text, total_duration):
-        """
-        Estimate word timestamps with punctuation-aware weighting.
-        """
-        words = text.split()
-        if not words:
-            return []
-            
-        words = [w for w in words if w.strip()]
-        
-        # Calculate weights based on characters + punctuation bonus
-        # Punctuation at the end of a word increases the pause after it
-        weights = []
-        for w in words:
-            weight = len(w)
-            if w.endswith(('.', '!', '?')): weight += 4
-            elif w.endswith((',', ';', ':')): weight += 2
-            weights.append(weight)
-        
-        total_weight = sum(weights)
-        if total_weight == 0: return []
-        
-        # We'll use 80% of time for actual speaking, 20% for gaps
-        gap_total = total_duration * 0.20
-        speak_total = total_duration * 0.80
-        
-        time_per_weight = speak_total / total_weight
-        gap_per_word = gap_total / len(words)
-        
-        timestamps = []
-        current_time = 0.05 # Tiny initial buffer
-        
-        for i, word in enumerate(words):
-            duration = weights[i] * time_per_weight
-            start_time = current_time
-            end_time = start_time + duration
-            
-            timestamps.append({
-                "word": word,
-                "start": round(start_time, 3),
-                "end": round(end_time, 3)
-            })
-            
-            # Gap after word is proportional to punctuation
-            gap = gap_per_word
-            if word.endswith(('.', '!', '?')): gap *= 3.0
-            elif word.endswith((',', ';')): gap *= 2.0
-            
-            current_time = end_time + gap
-            
-        return timestamps
 
     def save_wav(self, audio_data, path):
         import scipy.io.wavfile as wavfile

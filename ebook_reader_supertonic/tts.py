@@ -266,17 +266,23 @@ class SupertonicTTS:
         speed=1.0,
         timestamps_backend: str = "estimate",
         vosk_model_path=None,
+        whisper_model_size: str = "base",
+        whisper_device: str = None,
+        whisper_compute_type: str = "float16",
     ):
         """
         Synthesize speech from text.
-        
+
         :param text: Text to synthesize
         :param voice: Voice name (e.g., 'F1', 'M3') or path to style JSON
         :param lang: Language code ('en', 'ko', etc.) or None for auto-detect
         :param steps: Denoising steps (default 10)
         :param speed: Speech speed (default 1.0)
-        :param timestamps_backend: 'estimate' (default), 'vosk', or 'auto'
+        :param timestamps_backend: 'estimate' (default), 'vosk', 'whisper', or 'auto'
         :param vosk_model_path: optional model directory for Vosk (or set env VOSK_MODEL_PATH)
+        :param whisper_model_size: Whisper model size ('tiny', 'base', 'small', 'medium', 'large')
+        :param whisper_device: Device for Whisper ('cuda', 'cpu', or None for auto)
+        :param whisper_compute_type: Compute type for Whisper ('float16', 'int8', 'float32')
         :return: (audio_data, sample_rate, word_timestamps)
         """
         if lang is None:
@@ -355,6 +361,9 @@ class SupertonicTTS:
             backend=timestamps_backend,
             lang=lang,
             vosk_model_path=vosk_model_path,
+            whisper_model_size=whisper_model_size,
+            whisper_device=whisper_device,
+            whisper_compute_type=whisper_compute_type,
         )
         
         return wav, self.sample_rate, word_timestamps

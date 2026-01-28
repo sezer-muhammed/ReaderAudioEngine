@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ebook-reader-supertonic"
-version = "1.3.2"
+version = "1.3.3"
 authors = [
   { name="Izzet Sezer", email="sezer@imsezer.com" },
 ]
@@ -29,7 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 timestamps = ["vosk"]
-gpu-timestamps = ["faster-whisper", "torch"]
+gpu-timestamps = ["faster-whisper"]
 
 [project.urls]
 "Homepage" = "https://github.com/sezer-muhammed/ReaderAudioEngine"
